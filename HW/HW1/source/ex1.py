@@ -395,7 +395,7 @@ class TaxiProblem(search.Problem):
 
         sum_capacity_in_all_taxis = state['sum_capacity_all_taxis']
 
-        value = (sum(D) + sum(T) +  * 3) / sum_capacity_in_all_taxis
+        value = (sum(D) + sum(T)) / sum_capacity_in_all_taxis
         return value
 
     # def h(self, node):
