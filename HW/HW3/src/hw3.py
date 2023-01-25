@@ -63,7 +63,7 @@ class Agent:
                 state = self.simulator.get_state()
                 untried_actions = self.get_untried_actions(node=node_to_expand, state=state)
                 # rand action
-                action = random.choice(untried_actions)
+                action = self.choose_action_by_heuristic(untried_actions)
                 self.play_action_in_simulator(node_to_expand, action)
                 # create child node
                 child_state = self.simulator.get_state()
@@ -85,8 +85,6 @@ class Agent:
         must perform a simulation from a new node
         """
         while self.curr_turns_to_go:
-            # next_action = random.choice(node.untried_actions)
-            # self.play_action_in_simulator(node, next_action=next_action)
             child = self.expansion(node_to_expand=node)
             node = child
 
@@ -119,7 +117,7 @@ class Agent:
         output: best action.
         ! Should finish within 5 seconds
         """
-        best_action = self.get_best_action_by_UCT(state, n_iterations=100)
+        best_action = self.get_best_action_by_UCT(state, n_iterations=10)
         return best_action
 
     def get_best_action_by_UCT(self, state, n_iterations):
@@ -218,230 +216,238 @@ class Agent:
         node.untried_actions = node.possible_actions
         return node.untried_actions
 
-#
-# class UCTAgent:
-#     def __init__(self, initial_state, player_number):
-#         """
-#         ! Should finish within 60 seconds.
-#         """
-#         self.ids = IDS
-#         self.player_number = player_number
-#         self.my_taxis = []
-#         self.simulator = Simulator(initial_state)
-#         self.max_turns_to_go = initial_state["turns to go"]
-#         self.curr_turns_to_go = self.max_turns_to_go
-#         for taxi_name, taxi in initial_state["taxis"].items():
-#             if taxi["player"] == player_number:
-#                 self.my_taxis.append(taxi_name)
-#         self.rival_agent = RivalAgent(initial_state, player_number)
-#
-#     def selection(self, node):
-#         """
-#         must select a node to expand
-#         """
-#
-#         while node.fully_expanded() and node.children:
-#             nodes_sorted_desc = sorted(
-#                 node.children, key=lambda x: self.UCT_score_function(x), reverse=True
-#             )  # reverse True for sort descending
-#             legal_action = False
-#             index_of_highest_score = 0
-#             while not legal_action:
-#                 node = nodes_sorted_desc[index_of_highest_score]
-#                 # get the action that got us from parent to this child
-#                 action = node.actions_history[-1]
-#                 try:  # go to this child and update simulator
-#                     self.play_action_in_simulator(node, action)
-#                     # action updates
-#                     legal_action = True
-#                     node.update_untried_actions(action)
-#                 except ValueError:
-#                     index_of_highest_score += 1
-#
-#         return node
-#
-#     def UCT_score_function(self, node):
-#         return node.mean_reward + math.sqrt(
-#             2 * math.log(node.parent.n_visits) / node.n_visits
-#         )
-#
-#     def expansion(self, node_to_expand):
-#         """
-#         must update the tree with a new node
-#         """
-#         if not node_to_expand.fully_expanded():
-#             if node_to_expand.untried_actions:
-#                 # set all possible actions if needed
-#                 state = self.simulator.get_state()
-#                 self.set_possible_actions(node_to_expand, state)
-#                 # rand action
-#                 action = random.choice(node_to_expand.untried_actions)
-#                 self.play_action_in_simulator(node_to_expand, action)
-#                 # create child node
-#                 child_state = self.simulator.get_state()
-#                 child_actions_history = tuple(
-#                     list(node_to_expand.actions_history) + [action]
-#                 )
-#                 child_possible_actions = self.get_all_possible_actions(child_state)
-#                 child = node_to_expand.add_child(
-#                     self, child_actions_history, child_possible_actions
-#                 )
-#             else:
-#                 raise RuntimeError("node already tried all possible actions")
-#         else:
-#             raise RuntimeError("node is already fully expanded!")
-#         return child
-#
-#     def simulation(self, node):
-#         """
-#         must perform a simulation from a new node
-#         """
-#         while self.curr_turns_to_go:
-#             self.play_action_in_simulator(
-#                 node, next_action=random.choice(node.untried_actions)
-#             )
-#         return self.simulator.score[self.player_number]  # reward
-#
-#     def backpropagation(self, reward, node):
-#         """
-#         must update the UCT tree with the new information.
-#         updating all the way up from the given node --> his parent --> his parent
-#             --> ... --> root
-#         """
-#         while node is not None:
-#             node.update(reward)
-#             node = node.parent
-#
-#     def act(self, state):
-#         """
-#         input: current state of the game.
-#         output: best action.
-#         ! Should finish within 5 seconds
-#         """
-#         best_action = self.get_best_action_by_UCT(state, n_iterations=100)
-#         return best_action
-#
-#     def get_best_action_by_UCT(self, state, n_iterations):
-#         """
-#         creating tree and run UCT.
-#         in each iteration:
-#             1. inializes the simulator
-#             2. select a node to exapnd
-#             3. simulate a full game against the rival
-#             4. update the mean rewards of the nodes in the tree
-#         """
-#         # init root node
-#         root = Node(
-#             actions_history=tuple(),
-#             possible_actions=self.get_all_possible_actions(state),
-#         )
-#         for _ in range(n_iterations):
-#             # init iteration
-#             node = root
-#             self.simulator = Simulator(state)
-#             self.curr_turns_to_go = self.max_turns_to_go
-#             # run
-#             node_to_expand = self.selection(node)
-#             new_node = self.expansion(node_to_expand)
-#             reward = self.simulation(new_node)
-#             self.backpropagation(reward, new_node)
-#
-#         return self.get_best_action(root, state)
-#
-#     def get_best_action(self, root, state):
-#         # get best action after check it is legal
-#         # sort nodes by UCT_score_function
-#         nodes_sorted_desc = sorted(
-#             root.children, key=lambda x: self.UCT_score_function(x), reverse=True
-#         )  # reverse True for sort descending
-#         # check if this action is legal from the input state
-#         self.simulator = Simulator(state)
-#         legal_action = False
-#         index_of_best_node = 0
-#         while not legal_action:
-#             best_node = nodes_sorted_desc[index_of_best_node]
-#             # get the action that got us from parent to this child
-#             best_action = best_node.actions_history[-1]
-#             legal_action = self.simulator.check_if_action_legal(
-#                 best_action, self.player_number
-#             )
-#             index_of_best_node += 1
-#         return best_action
-#
-#     def play_action_in_simulator(self, node, next_action):
-#         node.update_untried_actions(next_action)
-#         self.simulator.act(next_action, self.player_number)
-#         self.curr_turns_to_go -= 1
-#         next_state = self.simulator.get_state()
-#         self.rival_agent.act(next_state)  # TODO: update also rival action??
-#
-#     def get_all_possible_actions(self, state):
-#         """
-#         get all possible actions from given state.
-#         NOTE: the code of the for loop is the same like in sample_agent.py
-#         """
-#         actions = {}
-#         self.simulator.set_state(state)
-#         for taxi in self.my_taxis:
-#             actions[taxi] = set()
-#             neighboring_tiles = self.simulator.neighbors(
-#                 state["taxis"][taxi]["location"]
-#             )
-#             for tile in neighboring_tiles:
-#                 actions[taxi].add(("move", taxi, tile))
-#             if state["taxis"][taxi]["capacity"] > 0:
-#                 for passenger in state["passengers"].keys():
-#                     if (
-#                         state["passengers"][passenger]["location"]
-#                         == state["taxis"][taxi]["location"]
-#                     ):
-#                         actions[taxi].add(("pick up", taxi, passenger))
-#             for passenger in state["passengers"].keys():
-#                 if (
-#                     state["passengers"][passenger]["destination"]
-#                     == state["taxis"][taxi]["location"]
-#                     and state["passengers"][passenger]["location"] == taxi
-#                 ):
-#                     actions[taxi].add(("drop off", taxi, passenger))
-#             actions[taxi].add(("wait", taxi))
-#
-#         # get whole actions
-#         actions = list(itertools.product(*actions.values()))
-#         # filter out illegal actions
-#         actions = [
-#             action
-#             for action in actions
-#             if self.simulator.check_if_action_legal(action, self.player_number)
-#         ]
-#         return actions
-#
-#     def set_possible_actions(self, node, state):
-#         if node.possible_actions:
-#             return
-#         else:
-#             node.possible_actions = self.get_all_possible_actions(state)
-#             node.untried_actions = node.possible_actions
+    def choose_action_by_heuristic(self, actions):
+        while True:
+            whole_action = []
+            num_taxis = len(self.my_taxis)
+            actions_lists_by_taxis = [
+                [act[i] for act in actions] for i in range(num_taxis)
+            ]
+            for atomic_actions_of_taxi in actions_lists_by_taxis:
+                for action in atomic_actions_of_taxi:
+                    if action[0] == "drop off":
+                        whole_action.append(action)
+                        break
+                    if action[0] == "pick up":
+                        whole_action.append(action)
+                        break
+                else:
+                    whole_action.append(random.choice(list(atomic_actions_of_taxi)))
+            whole_action = tuple(whole_action)
+            if self.simulator.check_if_action_legal(whole_action, self.player_number):
+                return whole_action
 
-#
-# class Agent2:
-#     def __init__(self, initial_state, player_number):
-#         self.ids = IDS
-#
-#     def selection(self, UCT_tree):
-#         raise NotImplementedError
-#
-#     def expansion(self, UCT_tree, parent_node):
-#         raise NotImplementedError
-#
-#     def simulation(self):
-#         raise NotImplementedError
-#
-#     def backpropagation(self, simulation_result):
-#         raise NotImplementedError
-#
-#     def act(self, state):
-#         raise NotImplementedError
-#
+
+class UCTAgent:
+    def __init__(self, initial_state, player_number):
+        """
+        ! Should finish within 60 seconds.
+        """
+        random.seed(42)
+        self.ids = IDS
+        self.player_number = player_number
+        self.my_taxis = []
+        self.simulator = Simulator(initial_state)
+        self.max_turns_to_go = initial_state["turns to go"]
+        self.curr_turns_to_go = self.max_turns_to_go
+        for taxi_name, taxi in initial_state["taxis"].items():
+            if taxi["player"] == player_number:
+                self.my_taxis.append(taxi_name)
+        self.rival_agent = RivalAgent(initial_state, player_number)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~ UCT steps
+
+    def selection(self, node):
+        """
+        must select a node to expand
+        """
+
+        while node.fully_expanded() and node.children:
+            nodes_sorted_desc = sorted(
+                node.children, key=lambda x: self.UCT_score_function(x), reverse=True
+            )  # reverse True for sort descending
+            legal_action = False
+            index_of_highest_score = 0
+            while not legal_action:
+                node = nodes_sorted_desc[index_of_highest_score]
+                # get the action that got us from parent to this child
+                action = node.actions_history[-1]
+                try:  # go to this child and update simulator
+                    self.play_action_in_simulator(node, action)
+                    # action updates
+                    legal_action = True
+                    # node.update_untried_actions(action)
+                except ValueError as e:
+                    index_of_highest_score += 1
+                    raise e
+
+        return node
+
+    def expansion(self, node_to_expand):
+        """
+        must update the tree with a new node
+        """
+        if not node_to_expand.fully_expanded():
+            if node_to_expand.untried_actions:
+                # set node's all possible actions if needed
+                state = self.simulator.get_state()
+                untried_actions = self.get_untried_actions(node=node_to_expand, state=state)
+                # rand action
+                action = random.choice(untried_actions)
+                self.play_action_in_simulator(node_to_expand, action)
+                # create child node
+                child_state = self.simulator.get_state()
+                child_actions_history = tuple(
+                    list(node_to_expand.actions_history) + [action]
+                )
+                child_possible_actions = self.get_all_possible_actions(child_state)
+                child = node_to_expand.add_child(
+                    child_actions_history, child_possible_actions
+                )
+            else:
+                raise RuntimeError("node already tried all possible actions")
+        else:
+            raise RuntimeError("node is already fully expanded!")
+        return child
+
+    def simulation(self, node):
+        """
+        must perform a simulation from a new node
+        """
+        while self.curr_turns_to_go:
+            # next_action = random.choice(node.untried_actions)
+            # self.play_action_in_simulator(node, next_action=next_action)
+            child = self.expansion(node_to_expand=node)
+            node = child
+
+        return self.simulator.score[f"player {self.player_number}"]   # reward
+
+    def backpropagation(self, reward, node):
+        """
+        must update the UCT tree with the new information.
+        updating all the way up from the given node --> his parent --> his parent
+            --> ... --> root
+        """
+        while node is not None:
+            node.update(reward)
+            node = node.parent
+
+    # ~~~~~~~~~~~~~~~~~~~~~~
+
+    def UCT_score_function(self, node):
+        if node.n_visits == 0:
+            score = float("inf")
+        else:
+            score = node.mean_reward + math.sqrt(
+                2 * math.log(node.parent.n_visits) / node.n_visits
+            )
+        return score
+
+    def act(self, state):
+        """
+        input: current state of the game.
+        output: best action.
+        ! Should finish within 5 seconds
+        """
+        best_action = self.get_best_action_by_UCT(state, n_iterations=10)
+        return best_action
+
+    def get_best_action_by_UCT(self, state, n_iterations):
+        """
+        creating tree and run UCT.
+        in each iteration:
+            1. inializes the simulator
+            2. select a node to exapnd
+            3. simulate a full game against the rival
+            4. update the mean rewards of the nodes in the tree
+        """
+        # init root node
+        root = Node(actions_history=tuple(), possible_actions=self.get_all_possible_actions(state))
+        for _ in range(n_iterations):
+            # init iteration
+            node = root
+            self.simulator = Simulator(state)
+            self.curr_turns_to_go = self.max_turns_to_go
+            # run
+            node_to_expand = self.selection(node)
+            new_node = self.expansion(node_to_expand)
+            reward = self.simulation(new_node)
+            self.backpropagation(reward, new_node)
+
+        return self.get_best_action(root, state)
+
+    def get_best_action(self, root, state):
+        # get best action after check it is legal
+        # sort nodes by UCT_score_function
+        nodes_sorted_desc = sorted(
+            root.children, key=lambda x: self.UCT_score_function(x), reverse=True
+        )  # reverse True for sort descending
+        # check if this action is legal from the input state
+        self.simulator = Simulator(state)
+        legal_action = False
+        index_of_best_node = 0
+        while not legal_action:
+            best_node = nodes_sorted_desc[index_of_best_node]
+            # get the action that got us from parent to this child
+            best_action = best_node.actions_history[-1]
+            legal_action = self.simulator.check_if_action_legal(
+                best_action, self.player_number
+            )
+            index_of_best_node += 1
+        return best_action
+
+    def play_action_in_simulator(self, node, next_action):
+        self.simulator.act(next_action, self.player_number)
+        node.update_untried_actions(next_action)
+        self.curr_turns_to_go -= 1
+        next_state = self.simulator.get_state()
+        self.rival_agent.act(next_state)  # TODO: update also rival action??
+
+    def get_all_possible_actions(self, state):
+        """
+        get all possible actions from given state.
+        NOTE: the code of the for loop is the same like in sample_agent.py
+        """
+        actions = {}
+        self.simulator.set_state(state)
+        for taxi in self.my_taxis:
+            actions[taxi] = set()
+            neighboring_tiles = self.simulator.neighbors(
+                state["taxis"][taxi]["location"]
+            )
+            for tile in neighboring_tiles:
+                actions[taxi].add(("move", taxi, tile))
+            if state["taxis"][taxi]["capacity"] > 0:
+                for passenger in state["passengers"].keys():
+                    if (
+                            state["passengers"][passenger]["location"]
+                            == state["taxis"][taxi]["location"]
+                    ):
+                        actions[taxi].add(("pick up", taxi, passenger))
+            for passenger in state["passengers"].keys():
+                if (
+                        state["passengers"][passenger]["destination"]
+                        == state["taxis"][taxi]["location"]
+                        and state["passengers"][passenger]["location"] == taxi
+                ):
+                    actions[taxi].add(("drop off", taxi, passenger))
+            actions[taxi].add(("wait", taxi))
+
+        # get whole actions
+        actions = list(itertools.product(*actions.values()))
+        # filter out illegal actions
+        actions = [
+            action
+            for action in actions
+            if self.simulator.check_if_action_legal(action, self.player_number)
+        ]
+        return actions
+
+    def get_untried_actions(self, node, state):
+        node.possible_actions = self.get_all_possible_actions(state)
+        node.untried_actions = node.possible_actions
+        return node.untried_actions
+
 
 class Node:
     def __init__(
